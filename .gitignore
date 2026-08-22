@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 coverage/
+
+# Iron Legion state-store runtime data (see servers/orchestrator/state/README.md)
+servers/orchestrator/state/iron-legion.db
+servers/orchestrator/state/iron-legion.db-*
