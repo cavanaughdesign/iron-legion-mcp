@@ -1,23 +1,23 @@
 # Iron Legion MCP Server (MVP)
 
-Iron Legion is a single MCP server that exposes an **orchestrator skeleton** plus mountable **agent packs**, wired into VS Code Agent Mode / Copilot via `.vscode/mcp.json`.
+Iron Legion is a single MCP server that exposes an **orchestrator skeleton** plus mountable **agent packs**. It can be registered with an MCP host via a workspace `.mcp.json` (Copilot CLI / standalone Agent Host convention) or via `.vscode/mcp.json` (VS Code's own convention) -- see [MCP configuration](#mcp-configuration) below for what each file is, and when each is read.
 
-This repo currently implements the **MVP milestone** plus **Phase 2, Step 1** (state-store module), per the locked spec and addendum (Dart tasks: Spec: Iron Legion MCP Server, Spec addendum: Iron Legion Phase 2). See "Scope" below for what is and is not built yet.
+This repo currently implements the **MVP milestone** plus **Phase 2, Step 1** (state-store module) and **Phase 2, Step 2** (`.mcp.json` config wiring), per the locked spec and addendum (Dart tasks: Spec: Iron Legion MCP Server, Spec addendum: Iron Legion Phase 2). See "Scope" below for what is and is not built yet.
 
 ## Scope (MVP)
 
 **Built:**
 
-- Bare MCP server over stdio transport, discoverable by VS Code Agent Mode via `.vscode/mcp.json` (`servers` root key).
+- Bare MCP server over stdio transport, discoverable by VS Code Agent Mode via `.vscode/mcp.json` (`servers` root key) and by the standalone Copilot Agent Host / Copilot CLI via workspace `.mcp.json` (`mcpServers` root key).
 - Orchestrator **skeleton**: a registry/dispatcher that discovers and mounts agent packs at boot. No LangGraph, no DAG execution, no cross-agent routing.
 - One working agent pack: **Builder**, exposing `builder__scaffold_file` and `builder__run_tests` against the bundled `sample-repo/`.
 - Repo layout matching the concept doc: `/servers/orchestrator/`, `/servers/agents/`, `/servers/skills/`.
 - Enforced, documented tool budget (see below).
 - **State-store module** (`/servers/orchestrator/state/`, Phase 2 Step 1): SQLite + `sqlite-vec` persistence for runs, run steps, and semantic memory recall via a local, in-process embedding model. See its own [README](servers/orchestrator/state/README.md) for details. Internal library only -- it does not register any MCP tools itself.
+- **Workspace `.mcp.json`** (Phase 2 Step 2): primary config surface for the standalone Copilot Agent Host / Copilot CLI, using the `mcpServers` root key. Mirrors the existing `.vscode/mcp.json` entry's `command`/`args` exactly -- no changes to the server binary. See [MCP configuration](#mcp-configuration).
 
 **Explicitly deferred (do not build without a new task):**
 
-- `.mcp.json` config wiring for the state-store (Phase 2 Step 2).
 - Tester, Docs, DevOps, Auditor agent packs (Phase 2 Step 3+).
 - LangGraph-style multi-agent orchestration / DAG execution.
 - House Party Protocol (multi-project spawn workflow).
@@ -29,6 +29,7 @@ This repo currently implements the **MVP milestone** plus **Phase 2, Step 1** (s
 
 ```
 iron-legion-mcp/
+  .mcp.json             # Copilot CLI / standalone Agent Host config (mcpServers root key)
   servers/
     orchestrator/
       index.ts        # entrypoint: boots McpServer, mounts packs, connects stdio transport
@@ -59,7 +60,19 @@ npm install
 npm start          # runs servers/orchestrator/index.ts over stdio via tsx
 ```
 
-VS Code Agent Mode will discover the server automatically once `.vscode/mcp.json` is present in the workspace -- no manual registration beyond that file.
+VS Code Agent Mode will discover the server automatically once `.vscode/mcp.json` is present in the workspace, and the standalone Copilot Agent Host / Copilot CLI will discover it automatically once `.mcp.json` is present -- no manual registration beyond those files.
+
+## MCP configuration
+
+Iron Legion ships two workspace config files plus documents a third, user-level fallback path. They are **not interchangeable copies** -- each uses a different root key because each is read by a different host:
+
+| File | Root key | Read by | Role |
+| --- | --- | --- | --- |
+| `.mcp.json` (repo root) | `mcpServers` | Standalone Copilot Agent Host / Copilot CLI | **Primary.** The native config surface for running Iron Legion outside VS Code itself. |
+| `.vscode/mcp.json` | `servers` | VS Code (Agent Mode) | **Secondary / compatibility fallback.** VS Code forwards this config to the Agent Host automatically for servers like this one that don't need `${input:...}` variables, so keeping it costs little and preserves the existing VS Code workflow. Not removed or restructured by Phase 2 Step 2. |
+| `~/.copilot/mcp-config.json` | `mcpServers` | Standalone Copilot Agent Host / Copilot CLI | **User-level fallback.** Convention for registering Iron Legion when you're working outside this repo's workspace (e.g. no `.mcp.json` in the current directory). Documented here only -- this repo does not generate or manage that file, since it's user-machine-specific. |
+
+Both `.mcp.json` and `.vscode/mcp.json` currently register the same local stdio entry (`npx tsx servers/orchestrator/index.ts`) -- Phase 2 Step 2 only added the `.mcp.json` config surface, it did not change the server binary or its startup command.
 
 ## Adding a new agent pack
 
@@ -135,4 +148,4 @@ Covers: agent-pack manifest discovery, tool namespacing (`<pack-id>__<name>`), t
 
 1. ~~Whether Iron Legion's agent packs should call out to the already-live `skill-manager-mcp` for skill-related capability~~ -- resolved: skill-manager-mcp will not be available; Iron Legion builds first-party, parallel Tester/Docs/DevOps/Auditor packs and `/servers/skills/` instead.
 2. ~~Where cross-run state/memory for future orchestration phases should live~~ -- resolved: a local SQLite + sqlite-vec store under `/servers/orchestrator/state/` (see Phase 2 Step 1).
-3. Whether "VS Code Agent Mode" here means VS Code proper or the standalone Copilot Agent Host/CLI, which reads MCP config from a different file. This repo defaults to standard `.vscode/mcp.json` for now; the addendum locks the config convention for Phase 2 Step 2.
+3. ~~Whether "VS Code Agent Mode" here means VS Code proper or the standalone Copilot Agent Host/CLI, which reads MCP config from a different file~~ -- resolved (Phase 2 Step 2): both are supported. `.mcp.json` (`mcpServers` key) is the primary surface for the standalone Agent Host/CLI; `.vscode/mcp.json` (`servers` key) remains for VS Code proper. See [MCP configuration](#mcp-configuration).
