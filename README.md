@@ -2,7 +2,7 @@
 
 Iron Legion is a single MCP server that exposes an **orchestrator skeleton** plus mountable **agent packs**, wired into VS Code Agent Mode / Copilot via `.vscode/mcp.json`.
 
-This repo currently implements the **MVP milestone** only, per the locked spec (Dart task: Spec: Iron Legion MCP Server -- scope, architecture, MVP). See "Scope" below for what is and is not built yet.
+This repo currently implements the **MVP milestone** plus **Phase 2, Step 1** (state-store module), per the locked spec and addendum (Dart tasks: Spec: Iron Legion MCP Server, Spec addendum: Iron Legion Phase 2). See "Scope" below for what is and is not built yet.
 
 ## Scope (MVP)
 
@@ -13,14 +13,16 @@ This repo currently implements the **MVP milestone** only, per the locked spec (
 - One working agent pack: **Builder**, exposing `builder__scaffold_file` and `builder__run_tests` against the bundled `sample-repo/`.
 - Repo layout matching the concept doc: `/servers/orchestrator/`, `/servers/agents/`, `/servers/skills/`.
 - Enforced, documented tool budget (see below).
+- **State-store module** (`/servers/orchestrator/state/`, Phase 2 Step 1): SQLite + `sqlite-vec` persistence for runs, run steps, and semantic memory recall via a local, in-process embedding model. See its own [README](servers/orchestrator/state/README.md) for details. Internal library only -- it does not register any MCP tools itself.
 
 **Explicitly deferred (do not build without a new task):**
 
-- Tester, Docs, DevOps, Auditor agent packs.
+- `.mcp.json` config wiring for the state-store (Phase 2 Step 2).
+- Tester, Docs, DevOps, Auditor agent packs (Phase 2 Step 3+).
 - LangGraph-style multi-agent orchestration / DAG execution.
 - House Party Protocol (multi-project spawn workflow).
 - Clean Slate Protocol (teardown/reset).
-- Skill packs (`/servers/skills/`) as a distinct mountable unit -- see Open Questions.
+- Skill packs (`/servers/skills/`) as first-party, parallel implementations -- unblocked for planning now that skill-manager-mcp is confirmed unavailable, but still sequenced after Tester/Docs/DevOps per the addendum.
 - Any remote/Cloudflare hosting. This server is local stdio only.
 
 ## Repo layout
@@ -32,6 +34,7 @@ iron-legion-mcp/
       index.ts        # entrypoint: boots McpServer, mounts packs, connects stdio transport
       registry.ts      # discovers /servers/agents/*/index.ts and validates manifests
       types.ts          # AgentPackManifest / AgentPackTool contract
+      state/             # SQLite + sqlite-vec state-store (runs, steps, memories) -- see its README
     agents/
       builder/
         index.ts        # Builder pack manifest (default export)
@@ -44,6 +47,7 @@ iron-legion-mcp/
   tests/
     registry.test.ts
     builder.test.ts
+    state-store.test.ts
   .vscode/
     mcp.json             # VS Code Agent Mode config (servers root key)
 ```
@@ -125,10 +129,10 @@ Any future pack must state its added tool count and get it justified against thi
 npm test
 ```
 
-Covers: agent-pack manifest discovery, tool namespacing (`<pack-id>__<name>`), and the Builder pack's `scaffold_file` happy path.
+Covers: agent-pack manifest discovery, tool namespacing (`<pack-id>__<name>`), the Builder pack's `scaffold_file` happy path, and the state-store's run/step CRUD plus semantic-recall query path (`tests/state-store.test.ts`).
 
 ## Open questions (non-blocking fast-follows)
 
-1. Whether Iron Legion's agent packs should call out to the already-live `skill-manager-mcp` for skill-related capability instead of building a parallel `/servers/skills/` system.
-2. Where cross-run state/memory for future orchestration phases should live (e.g. `agent-memory-mcp` vs. a separate local store).
-3. Whether "VS Code Agent Mode" here means VS Code proper or the standalone Copilot Agent Host/CLI, which reads MCP config from a different file. This repo defaults to standard `.vscode/mcp.json` for now.
+1. ~~Whether Iron Legion's agent packs should call out to the already-live `skill-manager-mcp` for skill-related capability~~ -- resolved: skill-manager-mcp will not be available; Iron Legion builds first-party, parallel Tester/Docs/DevOps/Auditor packs and `/servers/skills/` instead.
+2. ~~Where cross-run state/memory for future orchestration phases should live~~ -- resolved: a local SQLite + sqlite-vec store under `/servers/orchestrator/state/` (see Phase 2 Step 1).
+3. Whether "VS Code Agent Mode" here means VS Code proper or the standalone Copilot Agent Host/CLI, which reads MCP config from a different file. This repo defaults to standard `.vscode/mcp.json` for now; the addendum locks the config convention for Phase 2 Step 2.
