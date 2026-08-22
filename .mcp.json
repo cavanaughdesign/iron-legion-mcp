@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "iron-legion": {
+      "command": "npx",
+      "args": ["tsx", "servers/orchestrator/index.ts"]
+    }
+  }
+}
