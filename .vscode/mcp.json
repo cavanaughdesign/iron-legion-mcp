@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "iron-legion": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "servers/orchestrator/index.ts"]
+    }
+  }
+}
