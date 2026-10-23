@@ -42,7 +42,7 @@ describe("tester__run_tests handler (state-store integration)", () => {
 
   it("records a run and a 'test' step while validating the sample repo", async () => {
     const result = await runTestsWithDb(db, {});
-    const parsed = JSON.parse(result.content[0].text as string);
+    const parsed = JSON.parse((result.content[0] as { type: "text"; text: string }).text);
 
     expect(result.isError).toBeFalsy();
     expect(typeof parsed.runId).toBe("string");
@@ -59,10 +59,10 @@ describe("tester__run_tests handler (state-store integration)", () => {
 
   it("records project_path from input when provided", async () => {
     const result = await runTestsWithDb(db, { projectPath: "/tmp/custom-project" });
-    const parsed = JSON.parse(result.content[0].text as string);
+    const parsed = JSON.parse((result.content[0] as { type: "text"; text: string }).text);
 
     const status = await getRunStatusWithDb(db, { runId: parsed.runId });
-    const statusParsed = JSON.parse(status.content[0].text as string);
+    const statusParsed = JSON.parse((status.content[0] as { type: "text"; text: string }).text);
     expect(statusParsed.run.project_path).toBe("/tmp/custom-project");
   });
 });
@@ -76,10 +76,10 @@ describe("tester__get_run_status handler", () => {
 
   it("reads back the run + steps recorded by run_tests", async () => {
     const runResult = await runTestsWithDb(db, {});
-    const { runId, stepId } = JSON.parse(runResult.content[0].text as string);
+    const { runId, stepId } = JSON.parse((runResult.content[0] as { type: "text"; text: string }).text);
 
     const statusResult = await getRunStatusWithDb(db, { runId });
-    const status = JSON.parse(statusResult.content[0].text as string);
+    const status = JSON.parse((statusResult.content[0] as { type: "text"; text: string }).text);
 
     expect(status.run.id).toBe(runId);
     expect(status.run.status).toBe("completed");

@@ -3,6 +3,30 @@ dist/
 *.log
 .DS_Store
 coverage/
+.deps-initial/
+.package-lock.initial.json
+.local-demo/
+artifacts/
+test-results/
+playwright-report/
+release/
+.factory/
+.cache/
+.iron-legion/
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.pem
+*.key
+*.p12
+*.pfx
+__pycache__/
 
 # Iron Legion state-store runtime data (see servers/orchestrator/state/README.md)
 servers/orchestrator/state/iron-legion.db

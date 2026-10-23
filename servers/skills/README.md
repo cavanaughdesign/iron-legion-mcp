@@ -1,5 +1,5 @@
-# Skill packs (stub -- not part of the MVP)
+# Factory role guidance
 
-This directory is a placeholder for the concept doc's "skill packs" idea. It is intentionally **not** a mountable unit yet.
+[ai-software-factory](ai-software-factory/SKILL.md) contains the workflow rules, role charters, scenario templates, and reference implementation used by Iron Legion.
 
-See Open Question 2 in the spec (Dart task: Spec: Iron Legion MCP Server -- scope, architecture, MVP): skill packs here may duplicate the already-live `skill-manager-mcp` (`skill_catalog` / `skill_admin` / `skill_author` / `skill_registry` tools). Do not build a parallel skill-pack registration system against this directory until that question is resolved.
+The running factory uses the native TypeScript engine in `servers/factory/`. It supplies each worker with its selected role charter; the orchestrator owns queue state, commits, PR publication, and merges. The bundled Python implementation is a reference, not a second runtime or a general-purpose skill registry.

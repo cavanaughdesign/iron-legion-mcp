@@ -4,7 +4,7 @@
  * rationale. Runs entirely through transformers.js' ONNX runtime; no network
  * calls are made after the model weights are cached locally on first load.
  */
-import type { FeatureExtractionPipeline } from "@xenova/transformers";
+import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
 
@@ -18,8 +18,10 @@ async function getExtractor(): Promise<FeatureExtractionPipeline> {
     extractorPromise = (async () => {
       // Lazy/dynamic import so loading the state-store module doesn't eagerly
       // pull in the ONNX runtime for callers that only need run/step CRUD.
-      const { pipeline } = await import("@xenova/transformers");
-      return (await pipeline("feature-extraction", MODEL_ID)) as unknown as FeatureExtractionPipeline;
+      const { pipeline } = await import("@huggingface/transformers");
+      return (await pipeline("feature-extraction", MODEL_ID, {
+        dtype: "q8",
+      })) as unknown as FeatureExtractionPipeline;
     })();
   }
   return extractorPromise;
@@ -39,7 +41,7 @@ export async function embedText(text: string): Promise<Float32Array> {
   if (data.length !== EMBED_DIM) {
     throw new Error(
       `Embedding model "${MODEL_ID}" returned ${data.length} dims, expected ${EMBED_DIM}. ` +
-        "Update EMBED_DIM in embeddings.ts and the memories_vec schema together if the model was intentionally changed."
+        "Update EMBED_DIM in embeddings.ts and the memories_vec schema together if the model was intentionally changed.",
     );
   }
 

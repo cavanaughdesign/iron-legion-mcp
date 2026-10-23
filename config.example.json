@@ -1,0 +1,34 @@
+{
+  "concurrency": 2,
+  "managerIntervalMinutes": 180,
+  "projects": [
+    {
+      "id": "my-project",
+      "name": "My project",
+      "root": "C:/Projects/my-project",
+      "baseBranch": "main",
+      "isolation": "trusted-process",
+      "autoMerge": false,
+      "checks": [
+        { "executable": "node", "args": ["--test"], "timeoutSeconds": 120 }
+      ],
+      "executors": {
+        "builder": {
+          "executable": "node",
+          "args": ["C:/Tools/iron-legion/scripts/codex-worker.mjs"],
+          "timeoutSeconds": 1800
+        },
+        "validator": {
+          "executable": "node",
+          "args": ["C:/Tools/iron-legion/scripts/codex-worker.mjs"],
+          "timeoutSeconds": 1200
+        },
+        "reviewer": {
+          "executable": "node",
+          "args": ["C:/Tools/iron-legion/scripts/codex-worker.mjs"],
+          "timeoutSeconds": 1200
+        }
+      }
+    }
+  ]
+}

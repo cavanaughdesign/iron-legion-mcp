@@ -21,18 +21,21 @@ export function createRun(db: StateDb, input: CreateRunInput): Run {
 
   db.prepare(
     `INSERT INTO runs (id, project_path, started_at, finished_at, status, summary)
-     VALUES (@id, @project_path, @started_at, @finished_at, @status, @summary)`
+     VALUES (@id, @project_path, @started_at, @finished_at, @status, @summary)`,
   ).run(run);
 
   return run;
 }
 
 export function getRun(db: StateDb, id: string): Run | undefined {
-  return db.prepare(`SELECT * FROM runs WHERE id = ?`).get(id) as Run | undefined;
+  return db.prepare(`SELECT * FROM runs WHERE id = ?`).get(id) as
+    Run | undefined;
 }
 
 export function listRuns(db: StateDb): Run[] {
-  return db.prepare(`SELECT * FROM runs ORDER BY started_at DESC`).all() as Run[];
+  return db
+    .prepare(`SELECT * FROM runs ORDER BY started_at DESC`)
+    .all() as Run[];
 }
 
 export interface UpdateRunInput {
@@ -41,14 +44,18 @@ export interface UpdateRunInput {
   summary?: string | null;
 }
 
-export function updateRun(db: StateDb, id: string, patch: UpdateRunInput): Run | undefined {
+export function updateRun(
+  db: StateDb,
+  id: string,
+  patch: UpdateRunInput,
+): Run | undefined {
   const existing = getRun(db, id);
   if (!existing) return undefined;
 
   const next: Run = { ...existing, ...patch };
 
   db.prepare(
-    `UPDATE runs SET finished_at = @finished_at, status = @status, summary = @summary WHERE id = @id`
+    `UPDATE runs SET finished_at = @finished_at, status = @status, summary = @summary WHERE id = @id`,
   ).run(next);
 
   return next;

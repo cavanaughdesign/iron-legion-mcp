@@ -16,7 +16,9 @@ const manifest: AgentPackManifest = {
         projectPath: z
           .string()
           .optional()
-          .describe("Path recorded as the run's project_path. Defaults to the bundled sample repo root."),
+          .describe(
+            "Path recorded as the run's project_path. Defaults to the bundled sample repo root.",
+          ),
       },
       handler: generateSummary,
     },

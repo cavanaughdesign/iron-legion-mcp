@@ -21,23 +21,33 @@ function isValidManifest(value: unknown): value is AgentPackManifest {
 }
 
 /**
- * Scans /servers/agents/*/index.{ts,js} for a default-exported AgentPackManifest.
+ * Scans each agent directory for index.ts or index.js exporting an AgentPackManifest.
  * The orchestrator never hardcodes pack imports -- every pack is discovered here.
  */
-export async function discoverAgentPacks(agentsDir: string = AGENTS_DIR): Promise<AgentPackManifest[]> {
+export async function discoverAgentPacks(
+  agentsDir: string = AGENTS_DIR,
+): Promise<AgentPackManifest[]> {
   const manifests: AgentPackManifest[] = [];
   if (!existsSync(agentsDir)) return manifests;
 
-  const entries = readdirSync(agentsDir, { withFileTypes: true }).filter((e) => e.isDirectory());
+  const entries = readdirSync(agentsDir, { withFileTypes: true }).filter((e) =>
+    e.isDirectory(),
+  );
 
   for (const entry of entries) {
-    const candidates = ["index.ts", "index.js"].map((f) => join(agentsDir, entry.name, f));
+    const candidates = ["index.ts", "index.js"].map((f) =>
+      join(agentsDir, entry.name, f),
+    );
     const target = candidates.find((c) => existsSync(c));
     if (!target) continue;
 
-    const mod = (await import(pathToFileURL(target).href)) as { default?: unknown };
+    const mod = (await import(pathToFileURL(target).href)) as {
+      default?: unknown;
+    };
     if (!isValidManifest(mod.default)) {
-      console.error(`[orchestrator] Skipping pack "${entry.name}": missing or invalid default-exported AgentPackManifest`);
+      console.error(
+        `[orchestrator] Skipping pack "${entry.name}": missing or invalid default-exported AgentPackManifest`,
+      );
       continue;
     }
     manifests.push(mod.default);

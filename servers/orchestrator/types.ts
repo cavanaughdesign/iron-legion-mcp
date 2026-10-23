@@ -11,7 +11,10 @@ export interface AgentPackTool {
   description: string;
   /** Raw Zod shape (object of Zod types), as consumed by server.registerTool's inputSchema. */
   inputSchema: Record<string, ZodTypeAny>;
-  handler: (input: Record<string, unknown>, extra: unknown) => Promise<CallToolResult>;
+  handler(
+    input: Record<string, unknown>,
+    extra: unknown,
+  ): Promise<CallToolResult>;
 }
 
 /**

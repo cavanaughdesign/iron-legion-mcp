@@ -1,167 +1,159 @@
-# Iron Legion MCP Server (MVP)
+# Iron Legion Factory
 
-Iron Legion is a single MCP server that exposes an **orchestrator skeleton** plus mountable **agent packs**. It can be registered with an MCP host via a workspace `.mcp.json` (Copilot CLI / standalone Agent Host convention) or via `.vscode/mcp.json` (VS Code's own convention) -- see [MCP configuration](#mcp-configuration) below for what each file is, and when each is read.
+![Iron Legion — AI Software Factory: coordinated steel robotic arms building a shared component.](assets/social/iron-legion-banner.png)
 
-This repo currently implements the **MVP milestone** plus **Phase 2, Step 1** (state-store module), **Phase 2, Step 2** (`.mcp.json` config wiring), **Phase 2, Step 3** (Tester agent pack), and **Phase 2, Step 4** (Docs agent pack), per the locked spec and addendum (Dart tasks: Spec: Iron Legion MCP Server, Spec addendum: Iron Legion Phase 2). See "Scope" below for what is and is not built yet.
+Iron Legion turns your release plan into a coordinated software delivery workflow. You define the outcome and acceptance criteria; independent Builder, Validator, and Reviewer agents implement each issue, test the candidate, and assess whether it is ready to merge. The factory manages dependencies, schedules parallel work, retries within defined limits, and brings questions back to you when a human decision is needed.
 
-## Scope (MVP)
+Run it locally and follow the work through an interactive MCP App or browser dashboard. Inspect candidate commits and evaluation evidence, pause execution, resolve blocked work, and turn staging feedback into the next issue. Plans, job history, decisions, and artifacts are saved locally. Connect GitHub to publish issues and pull requests, with merges gated on independent evaluation and successful CI for the reviewed commit.
 
-**Built:**
+The name is inspired by the [Iron Legion from the Marvel Cinematic Universe](https://marvelcinematicuniverse.fandom.com/wiki/Iron_Legion). Here, that idea becomes a team of specialized software agents working toward one release: you set the mission, the factory coordinates execution, and the evidence shows what is ready to ship.
 
-- Bare MCP server over stdio transport, discoverable by VS Code Agent Mode via `.vscode/mcp.json` (`servers` root key) and by the standalone Copilot Agent Host / Copilot CLI via workspace `.mcp.json` (`mcpServers` root key).
-- Orchestrator **skeleton**: a registry/dispatcher that discovers and mounts agent packs at boot. No LangGraph, no DAG execution, no cross-agent routing.
-- One working agent pack: **Builder**, exposing `builder__scaffold_file` and `builder__run_tests` against the bundled `sample-repo/`.
-- A second working agent pack: **Tester** (Phase 2 Step 3), exposing `tester__run_tests` and `tester__get_run_status`. Tester validates what Builder produces by running the bundled `sample-repo/`'s test suite, and is the first pack to prove the Phase 2 Step 1 state-store integration pattern end-to-end: it creates a run record and a `test` step, updates both as the tool executes, and can read them back via `get_run_status`.
-- A third working agent pack: **Docs** (Phase 2 Step 4), exposing `docs__generate_summary`. Docs (re)generates a summary doc (`sample-repo/DOCS_SUMMARY.md`, listing the repo's files and detected test count) for the bundled `sample-repo/`, and is the second pack to reuse the Phase 2 Step 1 state-store integration pattern proven by Tester: it creates a run record and an `edit` step, and updates both as the tool executes.
-- Repo layout matching the concept doc: `/servers/orchestrator/`, `/servers/agents/`, `/servers/skills/`.
-- Enforced, documented tool budget (see below).
-- **State-store module** (`/servers/orchestrator/state/`, Phase 2 Step 1): SQLite + `sqlite-vec` persistence for runs, run steps, and semantic memory recall via a local, in-process embedding model. See its own [README](servers/orchestrator/state/README.md) for details. Internal library only -- it does not register any MCP tools itself; the Tester pack was its first consumer, and Docs is its second.
-- **Workspace `.mcp.json`** (Phase 2 Step 2): primary config surface for the standalone Copilot Agent Host / Copilot CLI, using the `mcpServers` root key. Mirrors the existing `.vscode/mcp.json` entry's `command`/`args` exactly -- no changes to the server binary. See [MCP configuration](#mcp-configuration).
+The factory follows `servers/skills/ai-software-factory/SKILL.md`: three failed build attempts trigger escalation; a third review send-back triggers escalation; merging requires successful CI on the reviewed commit. The bundled Python script is a reference implementation; the running server uses the native TypeScript engine and works on Windows.
 
-**Explicitly deferred (do not build without a new task):**
+New to Iron Legion? Follow the [setup guide](setup.md) to install and connect a project, then use the [user guide](userguide.md) for your first release and everyday workflows.
 
-- DevOps, Auditor agent packs (Phase 2 Step 5+) -- sequenced after Tester/Docs so they can reuse the proven state-store integration pattern.
-- LangGraph-style multi-agent orchestration / DAG execution.
-- House Party Protocol (multi-project spawn workflow).
-- Clean Slate Protocol (teardown/reset).
-- Skill packs (`/servers/skills/`) as first-party, parallel implementations -- unblocked for planning now that skill-manager-mcp is confirmed unavailable, but still sequenced after DevOps/Auditor per the addendum.
-- Any remote/Cloudflare hosting. This server is local stdio only.
+## Install and launch
 
-## Repo layout
+Requires Node.js **22.12+** (24 recommended), npm, and Git. Agent execution additionally requires configured worker commands. The supplied Codex adapter uses an installed Codex CLI and its existing sign-in. GitHub publication requires the `gh` CLI signed in to the selected repository plus a usable Git remote.
 
-```
-iron-legion-mcp/
-  .mcp.json             # Copilot CLI / standalone Agent Host config (mcpServers root key)
-  servers/
-    orchestrator/
-      index.ts        # entrypoint: boots McpServer, mounts packs, connects stdio transport
-      registry.ts      # discovers /servers/agents/*/index.ts and validates manifests
-      types.ts          # AgentPackManifest / AgentPackTool contract
-      state/             # SQLite + sqlite-vec state-store (runs, steps, memories) -- see its README
-    agents/
-      builder/
-        index.ts        # Builder pack manifest (default export)
-        tools/
-          scaffoldFile.ts
-          runTests.ts
-      tester/
-        index.ts        # Tester pack manifest (default export)
-        tools/
-          runTests.ts      # tester__run_tests -- validates sample-repo/, writes run+step state
-          getRunStatus.ts  # tester__get_run_status -- reads run+step state back
-      docs/
-        index.ts        # Docs pack manifest (default export)
-        tools/
-          generateSummary.ts  # docs__generate_summary -- (re)writes sample-repo/DOCS_SUMMARY.md, writes run+step state
-    skills/
-      README.md          # stub placeholder -- not a mountable unit yet (see Open Questions)
-  sample-repo/           # sample target repo Builder's, Tester's, and Docs' tools operate against
-  tests/
-    registry.test.ts
-    builder.test.ts
-    tester.test.ts
-    docs.test.ts
-    state-store.test.ts
-  .vscode/
-    mcp.json             # VS Code Agent Mode config (servers root key)
+```powershell
+npm ci
+npm run build
+npm run dashboard
 ```
 
-## Running locally
+Open the **one-time link printed to stderr within 60 seconds**. The server chooses a free loopback port; `npm run dashboard -- --port=4178` requests a fixed port and fails clearly if it is in use. Refreshing the browser retains its eight-hour local session. Expired links require a fresh `factory__open` call with `popout: true`, or a server restart to print another link.
 
-```bash
-npm install
-npm start          # runs servers/orchestrator/index.ts over stdio via tsx
+The empty dashboard explains setup. It contains no seeded production projects or simulated live results.
+
+For source development, `npm run dev` runs the server through tsx; run `npm run build` after changing the App so its bundled HTML exists. The browser server always serves the built artifact.
+
+## Configure a project
+
+Copy [config.example.json](config.example.json) to `~/.iron-legion/config.json`. On Windows that is normally `C:/Users/<you>/.iron-legion/config.json`. Set:
+
+- `id`, `name`, `root`: a trusted local Git repository **root**, with an existing initial commit.
+- `baseBranch`: the existing branch that new work starts from.
+- `executors.builder`, `.validator`, `.reviewer`: independent executable/argument arrays. Replace the example adapter paths with the absolute path to this installation's `scripts/codex-worker.mjs`. Set `executable` to your full Node executable path when Node is not discoverable by the host.
+- `checks`: at least one meaningful command, run before the orchestrator commits Builder output.
+- Optional `github: "owner/repo"`: enables issue/PR publication. Ensure `origin` points to this repository and its base branch has been fetched. `gh auth login` and Git push authentication are prerequisites; Iron Legion does not store their credentials.
+- Optional `autoMerge: true`: enables merges after independent evaluation and verified GitHub checks. It defaults to false.
+- Optional `holdouts`: an existing directory outside the repository containing private `.md` user scenarios, written before building.
+- Optional `previewUrl`: the existing preview/staging URL the Validator should exercise. Deployment itself belongs to the target repository's CI/CD.
+- Optional `executors.manager`: a periodic independent agent analysis in addition to the built-in manager report. Recommendations return as evidence; the manager does not directly modify code.
+
+Restart the server after configuration changes. A missing config opens onboarding. Invalid configuration fails startup rather than partially enabling projects. There is no `.env` loader: set supported environment variables in your shell, service configuration, or MCP host configuration.
+
+| Environment variable             | Purpose                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `IRON_LEGION_HOME`               | State/job/worktree directory; defaults to `~/.iron-legion`                                                |
+| `IRON_LEGION_CONFIG`             | Absolute config-file path; defaults to `$IRON_LEGION_HOME/config.json`                                    |
+| `IRON_LEGION_CODEX_BINARY`       | Optional full path to native Codex executable; Windows adapter also detects the standard npm installation |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE` | Test-only browser override                                                                                |
+
+`concurrency` defaults to 2, with a maximum of 8. `managerIntervalMinutes` defaults to 180. `maxJobsPerRelease` defaults to 500; reaching it pauses dispatch for review. Each command has a configured timeout (default 900 seconds), and stdout/stderr are bounded. Token billing depends on the configured executor; Iron Legion does not invent usage figures or enforce provider billing limits.
+
+On Windows, configure native `.exe` executables or use the Node adapter. Shell scripts such as `.cmd`/`.ps1` are not implicitly interpreted. For npm checks use `node` with the absolute npm CLI script and `run <script>`, or configure a specific trusted PowerShell executable and argument array.
+
+## Use the App
+
+1. Create a release with a goal and small issues. Give each a stable key, observable acceptance criteria, route, and dependency keys. The server rejects duplicate keys, missing dependencies, cycles, and obvious private-scenario references.
+2. Write private scenarios first if your project uses holdouts. Start the factory after the plan is ready.
+3. The engine claims ready issues atomically. Builder gets one issue per attempt and its previous actionable feedback. Simple/complex routing is included in the role context.
+4. Builder changes run configured checks and are committed on a dedicated factory branch. Validator and Reviewer each receive a fresh detached worktree of that exact candidate. Tracked evaluator modifications or a changed commit invalidate the result.
+5. Use **Workers** to inspect execution outcomes; **Validation & review** for reports, traces and base64 PNG screenshots; **Activity** for persisted events. Validator artifacts remain on the human-facing App path.
+6. **Pause dispatch** lets current assignments finish. **Cancel** aborts active workers and fences late results, preserving branches and remote objects for inspection.
+7. Questions and exhausted retries appear in **Decision inbox**. A reasoned answer can retry or drop the issue. Retry resets counters after that explicit human decision. Dropped dependencies remain blocking; they are not treated as successful merges.
+8. A reviewed candidate reaches **Merge ready**. With GitHub configured, the merge action verifies the PR head, base, draft state, mergeability, and all reported checks; at least one successful check is required. Missing, skipped, pending or failing checks do not pass. The merge request matches the reviewed SHA, and completion is confirmed before dependencies are promoted.
+9. **Feedback** creates a new issue in the release; regressions take priority. Feedback on a completed release reopens it paused so you can choose when to resume.
+
+Without GitHub, local building/validation/review works and stops at Merge ready. Iron Legion does not label a local branch as merged or bypass CI. Repository branch protection should also enforce your normal checks and review policy.
+
+## Worker contract and role skill
+
+Every assignment is a fresh process in its assigned working directory. The configured executable receives a JSON task on stdin. Arguments may use `{promptFile}`, `{outputFile}`, `{worktree}`, `{role}`, and `{jobDir}`. Return JSON on stdout or write `{outputFile}`:
+
+```json
+{
+  "verdict": "pass",
+  "summary": "Observable outcome and supporting evidence.",
+  "artifacts": [
+    {
+      "kind": "report",
+      "name": "review.txt",
+      "content": "Evidence from this independent evaluation."
+    }
+  ]
+}
 ```
 
-VS Code Agent Mode will discover the server automatically once `.vscode/mcp.json` is present in the workspace, and the standalone Copilot Agent Host / Copilot CLI will discover it automatically once `.mcp.json` is present -- no manual registration beyond those files.
+Other verdicts are `fail` and `ask`. Artifact kinds are `report`, `test`, `trace`, and `screenshot` (base64 PNG, at most 160,000 characters). At most ten worker-provided artifacts are accepted. The orchestrator records check output and candidate summaries separately.
+
+Iron Legion reads the selected role's charter from the supplied factory skill. Reference `factory.py` commands describe transitions; workers must not execute them. The orchestrator owns queue state, commits, PR publication and merges. Builders never receive holdouts, evaluator artifacts, or another role's reasoning.
+
+The Codex adapter uses a fresh ephemeral session, structured output, Builder workspace-write/evaluator read-only modes, and the Windows elevated sandbox configuration. It ignores unrelated user configuration while retaining the existing sign-in. A successful live three-role smoke has been run; see [verification](docs/verification.md). Codex execution behavior is documented in [official non-interactive mode guidance](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+## Isolation and local security
+
+Default **trusted-process** mode is for code and commands you trust. Workers run as your OS user. Separate contexts and worktrees prevent accidental role contamination; they do **not** prevent a hostile process from reading other files accessible to that user. Keep private scenarios out of issues, repository files, builder chats and logs.
+
+The optional `container` mode runs a prepared `containerImage` with no network, reduced Linux capabilities, memory/CPU/process limits, the assigned worktree and job directory, and a read-only holdout mount only for Validator. Provide commands available inside that image. A host Git worktree's `.git` pointer is not portable into a container; the orchestrator performs Git operations outside the container and supplies the candidate patch in the task. Container agents must inspect source files/that patch rather than assume a usable in-container Git repository. This backend has not been accepted against a live Docker daemon in this environment. The supplied cloud Codex adapter is for trusted-process mode; it is not an offline container image.
+
+The dashboard binds only to `127.0.0.1`, validates Host/Origin, and authenticates API requests with a single-use bootstrap followed by an HttpOnly SameSite cookie. Bootstrap tokens are URL fragments, removed before the App loads data. Raw credentials are not written to configuration or state. Parent environment secrets are not forwarded to workers; installed CLI sign-ins remain under those CLIs' control. Do not expose this local dashboard through a public reverse proxy.
 
 ## MCP configuration
 
-Iron Legion ships two workspace config files plus documents a third, user-level fallback path. They are **not interchangeable copies** -- each uses a different root key because each is read by a different host:
+After building, configure a generic host:
 
-| File | Root key | Read by | Role |
-| --- | --- | --- | --- |
-| `.mcp.json` (repo root) | `mcpServers` | Standalone Copilot Agent Host / Copilot CLI | **Primary.** The native config surface for running Iron Legion outside VS Code itself. |
-| `.vscode/mcp.json` | `servers` | VS Code (Agent Mode) | **Secondary / compatibility fallback.** VS Code forwards this config to the Agent Host automatically for servers like this one that don't need `${input:...}` variables, so keeping it costs little and preserves the existing VS Code workflow. Not removed or restructured by Phase 2 Step 2. |
-| `~/.copilot/mcp-config.json` | `mcpServers` | Standalone Copilot Agent Host / Copilot CLI | **User-level fallback.** Convention for registering Iron Legion when you're working outside this repo's workspace (e.g. no `.mcp.json` in the current directory). Documented here only -- this repo does not generate or manage that file, since it's user-machine-specific. |
-
-Both `.mcp.json` and `.vscode/mcp.json` currently register the same local stdio entry (`npx tsx servers/orchestrator/index.ts`) -- Phase 2 Step 2 only added the `.mcp.json` config surface, it did not change the server binary or its startup command.
-
-## Adding a new agent pack
-
-1. Create a directory at `/servers/agents/<pack-id>/` with an `index.ts` that default-exports an `AgentPackManifest` (see `servers/orchestrator/types.ts`):
-
-   ```ts
-   import type { AgentPackManifest } from "../../orchestrator/types.js";
-
-   const manifest: AgentPackManifest = {
-     id: "my-pack",
-     displayName: "My Pack",
-     description: "What this pack does.",
-     tools: [
-       {
-         name: "do_thing",
-         description: "Does a thing.",
-         inputSchema: { input: z.string() },
-         handler: async ({ input }) => ({ content: [{ type: "text", text: `did: ${input}` }] }),
-       },
-     ],
-   };
-
-   export default manifest;
-   ```
-
-2. The orchestrator scans `/servers/agents/*/index.ts` at boot and registers every tool automatically -- there is **no hardcoded import list** to update in the orchestrator.
-3. Every tool is registered as `${pack.id}__${tool.name}` (e.g. `my-pack__do_thing`) to prevent name collisions across packs.
-4. Before adding a pack, check it against the **tool budget** below and justify any addition in its own task -- do not add packs silently.
-5. If the pack needs to record run/step state, import the state-store's public exports (`runs.ts`/`steps.ts`/`index.ts` under `servers/orchestrator/state/`) rather than touching its SQLite schema directly -- see the Tester pack's `tools/runTests.ts` (and Docs' `tools/generateSummary.ts`) for the reference pattern (open a db, create a run + step, update them as work progresses, always close the db in a `finally`).
-
-## Manifest contract
-
-```ts
-interface AgentPackManifest {
-  id: string;              // used as the tool namespace prefix
-  displayName: string;
-  description: string;
-  tools: AgentPackTool[];
-  skills?: string[];        // ids of /servers/skills/ packs this agent mounts (post-MVP, unused for now)
-}
-
-interface AgentPackTool {
-  name: string;                                // registered as `${pack.id}__${name}`
-  description: string;
-  inputSchema: Record<string, ZodTypeAny>;      // raw Zod shape passed to server.registerTool
-  handler: (input: any, extra: any) => Promise<CallToolResult>;
+```json
+{
+  "mcpServers": {
+    "iron-legion": {
+      "command": "node",
+      "args": ["C:/Tools/iron-legion/dist/servers/orchestrator/index.js"],
+      "env": { "IRON_LEGION_CONFIG": "C:/Users/you/.iron-legion/config.json" }
+    }
+  }
 }
 ```
 
-Packs are toggled via the SDK-native `RegisteredTool.enable()` / `.disable()` handles returned by `server.registerTool(...)` (these trigger `list_changed` notifications automatically) -- there is no bespoke on/off mechanism.
+VS Code's `mcp.json` uses a `servers` root instead of `mcpServers`. Use forward slashes in Windows JSON paths. Restart/reconnect the host after configuration changes. Call `factory__open` to open `ui://iron-legion/factory.html` (`text/html;profile=mcp-app`). Rendering requires an **MCP Apps-capable host**. A tool-only host receives structured data but cannot render this interface. Fullscreen first requests host display mode, then falls back to a fresh authenticated browser link or a visible link you can open.
 
-## Tool namespacing & budget rule
+The tool budget remains **nine**: the seven original meta/Builder/Tester/Docs tools, plus `factory__open` and App-visible `factory__control`. Control actions include planning, lifecycle controls, feedback, human resolution, artifact inspection, GitHub synchronization and merge. Input uses strict discriminated schemas. Legacy Builder/Tester/Docs tools retain their sample-project scope; their historical MVP documentation is [archived here](docs/legacy-mvp.md).
 
-Every tool name is namespaced `<pack-id>__<tool-name>` to avoid collisions. Agent hosts have practical ceilings around ~128 tools per request, with usability degrading well before that.
+The browser UI closing does not stop the service. In stdio mode the MCP host owns the process; disconnecting that process stops its workers. For an independently running local service, run `npm run dashboard` in a separate terminal or OS service using the same state directory. Competing instances coordinate through SQLite job claims. Shutdown stops dispatch, terminates owned workers, and waits for in-flight operations to settle before closing state.
 
-**Current tool count: 7 (within the <10 MVP budget)**
+## Persistence, recovery and maintenance
 
-| Source | Tools |
-| --- | --- |
-| Orchestrator meta-tools | `orchestrator__list_packs`, `orchestrator__health` (2) |
-| Builder pack | `builder__scaffold_file`, `builder__run_tests` (2) |
-| Tester pack | `tester__run_tests`, `tester__get_run_status` (2) |
-| Docs pack | `docs__generate_summary` (1) |
+`factory.db` contains releases, issues, jobs, events, artifacts, request receipts and external-operation receipts. SQLite uses WAL, foreign keys and a busy timeout; schema initialization/migrations are transactional and repeatable. Legacy run/step/semantic memory now lives in `legacy-state.db` under the data directory. No automatic import of old installation-local legacy databases is performed; preserve those files if upgrading an existing installation.
 
-Any future pack must state its added tool count and get it justified against this budget in its own task before being merged.
+Job prompt/result files live under `jobs/`; worktrees under `worktrees/`. Keep these directories private to the service account. The service intentionally retains candidate worktrees for inspection. Stop the service before archiving/removing completed work with `git worktree remove <path>`; keep the database/audit history. There is no automatic destructive cleanup.
 
-## Testing
+Back up state with SQLite's backup mechanism, or stop every instance and copy the database files plus jobs/worktrees. Do not copy only a live `.db` file while discarding its WAL. Keep a versioned configuration copy with the backup. Restore to an empty data directory and restart the matching application version.
 
-```bash
-npm test
+An expired worker lease parks the issue for human reconciliation because the old writer may still exist. The engine does not automatically retry an uncertain writer. Unknown GitHub outcomes similarly require inspecting GitHub before resolving the issue. Confirmed issue/PR operations use durable receipts to avoid duplicate dispatch after restart.
+
+## Verification and packaging
+
+```powershell
+npx playwright install chromium
+npm run verify
+npm run smoke:live   # optional: uses your installed Codex sign-in and model allowance
+npm pack            # creates a private installable distribution after rebuilding
 ```
 
-Covers: agent-pack manifest discovery, tool namespacing (`<pack-id>__<name>`), the Builder pack's `scaffold_file` happy path (`tests/builder.test.ts`), the Tester pack's manifest discovery/namespacing plus its `run_tests`/`get_run_status` happy paths and state-store run/step writes (`tests/tester.test.ts`), the Docs pack's manifest discovery/namespacing plus its `generate_summary` happy path and state-store run/step writes (`tests/docs.test.ts`), and the state-store's run/step CRUD plus semantic-recall query path (`tests/state-store.test.ts`).
+`verify` runs both TypeScript checks, behavioral tests, a clean production build, compiled stdio/resource/HTTP smoke, a real Git-worktree subprocess workflow, browser/embedded/accessible-theme workflows, and the dependency audit. The default workflow uses clearly identified deterministic test workers. Live model smoke is separate and never runs automatically in CI. QA artifacts are under `artifacts/`; Playwright's report is under `playwright-report/`.
 
-## Open questions (non-blocking fast-follows)
+See [verification evidence and remaining external acceptance](docs/verification.md) and the five review summaries. These distinguish local/runtime evidence from a real target repository's GitHub branch protection, deployment pipeline and installed host behavior.
 
-1. ~~Whether Iron Legion's agent packs should call out to the already-live `skill-manager-mcp` for skill-related capability~~ -- resolved: skill-manager-mcp will not be available; Iron Legion builds first-party, parallel Tester/Docs/DevOps/Auditor packs and `/servers/skills/` instead.
-2. ~~Where cross-run state/memory for future orchestration phases should live~~ -- resolved: a local SQLite + sqlite-vec store under `/servers/orchestrator/state/` (see Phase 2 Step 1), now proven from an agent pack by Tester (Phase 2 Step 3) and Docs (Phase 2 Step 4).
-3. ~~Whether "VS Code Agent Mode" here means VS Code proper or the standalone Copilot Agent Host/CLI, which reads MCP config from a different file~~ -- resolved (Phase 2 Step 2): both are supported. `.mcp.json` (`mcpServers` key) is the primary surface for the standalone Agent Host/CLI; `.vscode/mcp.json` (`servers` key) remains for VS Code proper. See [MCP configuration](#mcp-configuration).
+## Troubleshooting
+
+- **Empty project list:** create the config at the selected path and restart; environment changes require restarting the MCP host process too.
+- **Start disabled/rejected:** confirm the Git root, initial commit/base branch, all three executors, meaningful checks, and any private scenario directory.
+- **Agent cannot write on Windows:** use the supplied adapter, which sets the native Windows sandbox configuration. Confirm the installed Codex CLI can execute a workspace-write task. Do not bypass sandboxing to hide the failure.
+- **Cannot spawn npm/codex:** use a native executable or Node adapter and absolute paths. `.cmd`/`.ps1` wrappers are not interpreted implicitly.
+- **GitHub publication parked:** install/sign in to `gh`, verify origin/push access, then inspect the existing issue/PR before resolving. Never blindly retry an uncertain external write.
+- **Merge blocked:** verify checks exist and succeed on the reviewed head, the PR base is correct, and GitHub considers it cleanly mergeable. Changes to the remote head require fresh evaluation.
+- **Browser 401/expired link:** open a fresh link via `factory__open` with `popout: true`; old bootstrap tokens cannot be reused.
+- **No App in the host:** verify MCP Apps support and that resources/read returns the bundled HTML. Tool-only support is insufficient.
+- **Semantic model download:** semantic recall lazily downloads the local MiniLM model on first use, then uses its cached weights. Core factory scheduling does not depend on this download.

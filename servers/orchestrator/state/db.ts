@@ -5,11 +5,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EMBED_DIM } from "./embeddings.js";
 import { SCHEMA_SQL, vecTableSql } from "./schema.js";
+import { dataHome } from "../../factory/config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Default on-disk location for the Iron Legion state DB (gitignored, created on first run). */
-export const DEFAULT_DB_PATH = join(__dirname, "iron-legion.db");
+export const DEFAULT_DB_PATH = join(dataHome, "legacy-state.db");
 
 export type StateDb = InstanceType<typeof Database>;
 
@@ -29,6 +30,8 @@ export function openStateDb(dbPath: string = DEFAULT_DB_PATH): StateDb {
   }
 
   const db = new Database(dbPath);
+  db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000");
   if (dbPath !== ":memory:") {
     db.pragma("journal_mode = WAL");
   }

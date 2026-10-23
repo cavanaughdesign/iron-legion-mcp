@@ -46,7 +46,7 @@ describe("docs__generate_summary handler (state-store integration)", () => {
 
   it("records a run and an 'edit' step while generating the summary doc", async () => {
     const result = await generateSummaryWithDb(db, {});
-    const parsed = JSON.parse(result.content[0].text as string);
+    const parsed = JSON.parse((result.content[0] as { type: "text"; text: string }).text);
 
     expect(result.isError).toBeFalsy();
     expect(typeof parsed.runId).toBe("string");
@@ -74,7 +74,7 @@ describe("docs__generate_summary handler (state-store integration)", () => {
 
   it("records project_path from input when provided", async () => {
     const result = await generateSummaryWithDb(db, { projectPath: "/tmp/custom-project" });
-    const parsed = JSON.parse(result.content[0].text as string);
+    const parsed = JSON.parse((result.content[0] as { type: "text"; text: string }).text);
 
     const run = getRun(db, parsed.runId);
     expect(run?.project_path).toBe("/tmp/custom-project");

@@ -2,18 +2,33 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createRun, createStep, updateRun, updateStep, openStateDb } from "../../../orchestrator/state/index.js";
+import {
+  createRun,
+  createStep,
+  updateRun,
+  updateStep,
+  openStateDb,
+} from "../../../orchestrator/state/index.js";
 import type { StateDb } from "../../../orchestrator/state/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 /** Sample repo Docs' tools generate documentation for, mirroring Builder's/Tester's SAMPLE_REPO_ROOT convention. */
-export const SAMPLE_REPO_ROOT = join(__dirname, "..", "..", "..", "..", "sample-repo");
+export const SAMPLE_REPO_ROOT = join(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "sample-repo",
+);
 /** Generated artifact this tool (re)writes on every run -- a new doc, not an edit to the existing README. */
 export const SUMMARY_OUTPUT_PATH = join(SAMPLE_REPO_ROOT, "DOCS_SUMMARY.md");
 
 const SUMMARY_FILE_NAME = "DOCS_SUMMARY.md";
 
-async function scanSampleRepo(root: string): Promise<{ files: string[]; testCount: number }> {
+async function scanSampleRepo(
+  root: string,
+): Promise<{ files: string[]; testCount: number }> {
   const entries = await readdir(root, { withFileTypes: true });
   const files = entries
     .filter((e) => e.isFile() && e.name !== SUMMARY_FILE_NAME)
@@ -31,8 +46,15 @@ async function scanSampleRepo(root: string): Promise<{ files: string[]; testCoun
   return { files, testCount };
 }
 
-function renderSummary(files: string[], testCount: number, generatedAt: string): string {
-  const fileList = files.length > 0 ? files.map((f) => `- \`${f}\``).join("\n") : "_no files found_";
+function renderSummary(
+  files: string[],
+  testCount: number,
+  generatedAt: string,
+): string {
+  const fileList =
+    files.length > 0
+      ? files.map((f) => `- \`${f}\``).join("\n")
+      : "_no files found_";
   return [
     "# sample-repo -- generated summary",
     "",
@@ -60,8 +82,13 @@ export interface GenerateSummaryInput {
  * default db and delegates here -- same `*WithDb` core + thin MCP wrapper split used by
  * Tester's tools/runTests.ts (the reference pattern cited in this step's task brief).
  */
-export async function generateSummaryWithDb(db: StateDb, input: GenerateSummaryInput): Promise<CallToolResult> {
-  const run = createRun(db, { project_path: input?.projectPath ?? SAMPLE_REPO_ROOT });
+export async function generateSummaryWithDb(
+  db: StateDb,
+  input: GenerateSummaryInput,
+): Promise<CallToolResult> {
+  const run = createRun(db, {
+    project_path: input?.projectPath ?? SAMPLE_REPO_ROOT,
+  });
   const step = createStep(db, {
     run_id: run.id,
     step_name: "edit",
@@ -75,7 +102,11 @@ export async function generateSummaryWithDb(db: StateDb, input: GenerateSummaryI
     const summary = renderSummary(files, testCount, generatedAt);
     await writeFile(SUMMARY_OUTPUT_PATH, summary, "utf8");
 
-    updateStep(db, step.id, { status: "done", finished_at: generatedAt, output_ref: SUMMARY_OUTPUT_PATH });
+    updateStep(db, step.id, {
+      status: "done",
+      finished_at: generatedAt,
+      output_ref: SUMMARY_OUTPUT_PATH,
+    });
     updateRun(db, run.id, {
       status: "completed",
       finished_at: generatedAt,
@@ -87,9 +118,15 @@ export async function generateSummaryWithDb(db: StateDb, input: GenerateSummaryI
         {
           type: "text",
           text: JSON.stringify(
-            { runId: run.id, stepId: step.id, outputPath: SUMMARY_OUTPUT_PATH, fileCount: files.length, testCount },
+            {
+              runId: run.id,
+              stepId: step.id,
+              outputPath: SUMMARY_OUTPUT_PATH,
+              fileCount: files.length,
+              testCount,
+            },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -98,18 +135,38 @@ export async function generateSummaryWithDb(db: StateDb, input: GenerateSummaryI
     const finishedAt = new Date().toISOString();
     const message = (err as Error).message;
 
-    updateStep(db, step.id, { status: "failed", finished_at: finishedAt, output_ref: message });
-    updateRun(db, run.id, { status: "failed", finished_at: finishedAt, summary: `Docs crashed: ${message}` });
+    updateStep(db, step.id, {
+      status: "failed",
+      finished_at: finishedAt,
+      output_ref: message,
+    });
+    updateRun(db, run.id, {
+      status: "failed",
+      finished_at: finishedAt,
+      summary: `Docs crashed: ${message}`,
+    });
 
     return {
       isError: true,
-      content: [{ type: "text", text: JSON.stringify({ runId: run.id, stepId: step.id, error: message }, null, 2) }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            { runId: run.id, stepId: step.id, error: message },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   }
 }
 
 /** MCP tool handler: opens the default state-store db, delegates, and always closes it. */
-export async function generateSummary(input: GenerateSummaryInput, _extra?: unknown): Promise<CallToolResult> {
+export async function generateSummary(
+  input: GenerateSummaryInput,
+  _extra?: unknown,
+): Promise<CallToolResult> {
   const db = openStateDb();
   try {
     return await generateSummaryWithDb(db, input ?? {});

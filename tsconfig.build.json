@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["servers"],
+  "exclude": ["tests", "node_modules", "dist", "sample-repo", ".deps-initial"]
+}

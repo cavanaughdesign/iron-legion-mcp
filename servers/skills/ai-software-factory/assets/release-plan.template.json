@@ -1,0 +1,63 @@
+{
+  "release": {
+    "name": "v0.2 Online Invoice Payments",
+    "type": "brownfield",
+    "goal": "A customer can open an invoice link and pay it by card; the shop owner sees it marked Paid."
+  },
+  "issues": [
+    {
+      "key": "ci-baseline",
+      "title": "Confirm CI runs tests on every PR",
+      "complexity": "simple",
+      "body": "Brownfield safety net: make sure the existing test suite runs on pull requests and is green on the default branch.",
+      "acceptance": [
+        "A PR triggers the test workflow",
+        "The workflow is green on the default branch"
+      ]
+    },
+    {
+      "key": "invoice-schema",
+      "title": "Add invoice payment tables and migration",
+      "complexity": "complex",
+      "depends_on": ["ci-baseline"],
+      "body": "Persist payment attempts and invoice status transitions.",
+      "acceptance": [
+        "Migration applies and rolls back cleanly on an empty and a populated database",
+        "Invoice status can be unpaid, paid, or failed",
+        "Existing invoice queries still pass their tests"
+      ]
+    },
+    {
+      "key": "payment-endpoint",
+      "title": "POST /invoices/:id/pay endpoint",
+      "complexity": "complex",
+      "depends_on": ["invoice-schema"],
+      "body": "Accepts a payment token, charges via the payment provider, updates invoice status.",
+      "acceptance": [
+        "Successful charge marks the invoice paid and records the attempt",
+        "Declined card returns a clear error and leaves the invoice unpaid",
+        "Paying an already-paid invoice is rejected without charging",
+        "Endpoint requires a valid invoice link token"
+      ]
+    },
+    {
+      "key": "fix-pricing-typo",
+      "title": "Fix 'recieve' typo on the pricing page",
+      "complexity": "simple",
+      "acceptance": ["The pricing page shows 'receive'"]
+    },
+    {
+      "key": "pay-page",
+      "title": "Customer-facing pay page",
+      "complexity": "complex",
+      "depends_on": ["payment-endpoint"],
+      "body": "Public page reached from the invoice link, shows amount due and a card form.",
+      "acceptance": [
+        "Page shows invoice number and amount due",
+        "Success state shown after payment",
+        "Error state shown on decline, with a way to retry",
+        "Already-paid invoices show a receipt instead of a form"
+      ]
+    }
+  ]
+}
